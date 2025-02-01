@@ -23,8 +23,19 @@ A web-based application for scanning and tracking serial numbers using your devi
 ## Setup
 
 1. Clone the repository
-2. Open `index.html` in a modern web browser
-3. Allow camera and location permissions when prompted
+2. Create a `config.js` file in the root directory using `config.example.js` as a template:
+   ```javascript
+   const config = {
+       GOOGLE_MAPS_API_KEY: 'YOUR_GOOGLE_MAPS_API_KEY',
+       MAPBOX_API_KEY: 'YOUR_MAPBOX_API_KEY'
+   };
+   export default config;
+   ```
+3. Replace the placeholder values with your actual API keys:
+   - Get a Google Maps API key from [Google Cloud Console](https://console.cloud.google.com/)
+   - Get a Mapbox API key from [Mapbox](https://www.mapbox.com/)
+4. Open `index.html` in a modern web browser
+5. Allow camera and location permissions when prompted
 
 ## Usage
 
@@ -33,6 +44,10 @@ A web-based application for scanning and tracking serial numbers using your devi
 3. Numbers are automatically detected and added to the list
 4. View results with location data on the map
 5. Submit or scan additional numbers as needed
+
+## Security Note
+
+The `config.js` file containing your API keys is automatically excluded from git tracking via `.gitignore`. Never commit your actual API keys to version control.
 
 ## License
 
