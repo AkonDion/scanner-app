@@ -1,0 +1,165 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #000;
+    color: white;
+}
+
+.container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 10px;
+    text-align: center;
+}
+
+h1 {
+    margin-bottom: 20px;
+    color: #fff;
+    font-size: 1.5rem;
+}
+
+.scanner-container {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
+    aspect-ratio: 16/9;
+    background: #000;
+}
+
+#video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.scan-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.scan-region {
+    position: relative;
+    width: 80%;
+    height: 100px;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    background: transparent;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+
+/* Add corner markers */
+.scan-region::before,
+.scan-region::after,
+.scan-region > span::before,
+.scan-region > span::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-color: #00ff00;
+    border-style: solid;
+}
+
+/* Top left corner */
+.scan-region::before {
+    top: -2px;
+    left: -2px;
+    border-width: 2px 0 0 2px;
+}
+
+/* Top right corner */
+.scan-region::after {
+    top: -2px;
+    right: -2px;
+    border-width: 2px 2px 0 0;
+}
+
+/* Bottom left corner */
+.scan-region > span::before {
+    bottom: -2px;
+    left: -2px;
+    border-width: 0 0 2px 2px;
+}
+
+/* Bottom right corner */
+.scan-region > span::after {
+    bottom: -2px;
+    right: -2px;
+    border-width: 0 2px 2px 0;
+}
+
+/* Scanning line animation */
+.scan-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: #00ff00;
+    animation: scan 2s linear infinite;
+}
+
+@keyframes scan {
+    0% {
+        top: 0;
+    }
+    100% {
+        top: 100%;
+    }
+}
+
+.scan-guide {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    color: #fff;
+    font-size: 0.9rem;
+    bottom: -30px;
+}
+
+.controls {
+    margin-top: 40px;
+    padding: 10px;
+}
+
+#startButton {
+    padding: 12px 24px;
+    font-size: 16px;
+    background-color: #00ff00;
+    color: black;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    margin: 10px 0;
+    box-shadow: 0 2px 5px rgba(0, 255, 0, 0.3);
+}
+
+#startButton:disabled {
+    background-color: #666;
+    color: #999;
+}
+
+#startButton:hover:not(:disabled) {
+    background-color: #00dd00;
+}
+
+.result {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    min-height: 50px;
+    color: #fff;
+    word-break: break-all;
+} 
