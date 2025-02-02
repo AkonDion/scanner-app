@@ -1,0 +1,46 @@
+name: scanner-app-test
+
+services:
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    ports:
+      - "3003:3001"
+    environment:
+      - NODE_ENV=test
+
+  test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    environment:
+      - NODE_ENV=test
+      - PORT=3000
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run test:ci
+
+  integration:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=test
+      - PORT=3000
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./backend:/app
+    command: npm run test:integration
+
+  nginx-test:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./frontend:/usr/share/nginx/html:ro
+    ports:
+      - "8081:80"
+    depends_on:
+      - integration 

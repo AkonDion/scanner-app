@@ -1,5 +1,5 @@
 import config from './config.js';
-import dealScanner from './deal-scanner.js';
+import dealScanner from './deal-scanner.js';  // Import the instance directly
 
 let cvReady = false;
 
@@ -460,26 +460,19 @@ async function initializeApp() {
                 if (cleanWord.length > 0 && matchesSerialNumberPattern(cleanWord)) {
                     console.log('Valid serial number found:', cleanWord);
                     
-                    // Add the found number and show results
-                    if (addFoundNumber(cleanWord)) {
-                        console.log('Added to results:', cleanWord);
+                    // Call the handler from deal-scanner.js
+                    if (window.handleScannedSerial) {
+                        window.handleScannedSerial(cleanWord);
+                        
                         // Provide feedback
                         navigator.vibrate && navigator.vibrate(200);
                         
-                        // Stop scanning and show results
+                        // Stop scanning
                         stopScanning();
-                        showResultsView();
                         
                         // Ensure we exit the processing
                         isProcessing = false;
                         return;
-                    } else {
-                        console.log('Number already exists:', cleanWord);
-                        // Continue scanning for new numbers
-                        isProcessing = false;
-                        if (isScanning) {
-                            setTimeout(processFrame, 200);
-                        }
                     }
                     return;
                 }
@@ -501,73 +494,55 @@ async function initializeApp() {
         }
     }
 
-    async function startCamera() {
+    // Make startCamera function available globally
+    window.startCamera = async function() {
         try {
-            // Reset scanning state
-            isScanning = false;
-            isProcessing = false;
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-            
-            // Reset UI state
-            resultDiv.textContent = 'Accessing camera...';
-            resultDiv.parentElement.classList.add('visible');
-            modelNumberDiv.style.display = 'none';
-            modelNumberDiv.classList.remove('active');
-            
-            // Try to get location once without retries
-            try {
-                currentPosition = await getCurrentLocation();
-            } catch (error) {
-                console.log('Proceeding without location');
-            }
-            
-            // Reset scan region
-            const scanRegion = document.querySelector('.scan-region');
-            scanRegion.classList.remove('scanning');
-            scanRegion.classList.add('scanning');
-            document.querySelector('.ready-text').style.display = 'none';
-
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { exact: "environment" },
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    }
-                });
-            } catch (err) {
-                console.log('Falling back to default camera:', err);
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    }
+            if (!worker) {
+                console.log('Initializing Tesseract worker...');
+                worker = await Tesseract.createWorker();
+                await worker.loadLanguage('eng');
+                await worker.initialize('eng');
+                await worker.setParameters({
+                    tessedit_char_whitelist: '0123456789',
                 });
             }
 
+            const constraints = {
+                audio: false,
+                video: {
+                    facingMode: 'environment',
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                }
+            };
+
+            console.log('Requesting camera access...');
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = stream;
-            video.setAttribute('playsinline', true);
             await video.play();
-            
-            // Start new scanning session
-            isScanning = true;
+
+            // Update UI
             startButton.textContent = 'Stop Scanner';
+            document.querySelector('.scan-region').classList.add('scanning');
+            isScanning = true;
+            
+            // Clear any previous results
             resultDiv.textContent = 'Scanning...';
-            
-            // Ensure clean start of frame processing
-            isProcessing = false;
-            processFrame();
-            
-        } catch (err) {
-            console.error('Camera access error:', err);
-            resultDiv.textContent = 'Camera access denied. Please check permissions.';
             resultDiv.parentElement.classList.add('visible');
-            startButton.disabled = false;
+            
+            // Start processing frames
+            processFrame();
+        } catch (error) {
+            console.error('Error starting camera:', error);
+            resultDiv.textContent = 'Failed to start camera. Please try again.';
+            resultDiv.parentElement.classList.add('visible');
+            
+            // Show deal selector again in case of error
+            document.querySelector('.deal-selector-container').style.display = 'block';
+            document.querySelector('.video-container').style.display = 'none';
+            document.querySelector('.controls-container').style.display = 'none';
         }
-    }
+    };
 
     function stopScanning() {
         isScanning = false;
@@ -591,6 +566,8 @@ async function initializeApp() {
     let currentIndex = 0;
 
     function animateNumbers() {
+        if (!readyText) return;
+        
         if (currentIndex < sampleNumbers.length) {
             readyText.textContent = sampleNumbers[currentIndex];
             readyText.classList.add('visible');
@@ -604,45 +581,58 @@ async function initializeApp() {
             setTimeout(() => {
                 readyText.textContent = 'Ready to scan';
                 readyText.classList.add('visible');
+                currentIndex = 0;
+                setTimeout(animateNumbers, 2000);
             }, 100);
         }
     }
 
-    // Start the animation sequence after a short delay
-    setTimeout(animateNumbers, 500);
+    // Start the animation
+    animateNumbers();
 
     // Initialize the scanner
     initializeWorker();
 
-    // Make startCamera available globally for the deal scanner
-    window.startCamera = startCamera;
+    // Update start button to handle navigation
+    if (startButton) {
+        startButton.addEventListener('click', async () => {
+            const videoContainer = document.querySelector('.video-container');
+            const controlsContainer = document.querySelector('.controls-container');
 
-    // Set up button click handler
-    startButton.onclick = async () => {
-        try {
-            startButton.disabled = true; // Disable while loading deals
-            // Initialize the deal scanner
+            // Create deal selector container if it doesn't exist
+            let dealSelectorContainer = document.querySelector('.deal-selector-container');
+            if (!dealSelectorContainer) {
+                dealSelectorContainer = document.createElement('div');
+                dealSelectorContainer.className = 'deal-selector-container';
+                dealSelectorContainer.style.display = 'none';
+                dealSelectorContainer.innerHTML = `
+                    <div id="loading-deals" style="
+                        padding: 16px;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 16px;
+                    ">
+                        Loading deals...
+                    </div>
+                `;
+                document.querySelector('.container').appendChild(dealSelectorContainer);
+            }
+
+            // Hide the video container and start button
+            videoContainer.style.display = 'none';
+            startButton.style.display = 'none';
+
+            // Show the deal selector and initialize if needed
+            dealSelectorContainer.style.display = 'block';
             await dealScanner.initialize();
-        } catch (error) {
-            console.error('Error initializing deal scanner:', error);
-            resultDiv.textContent = 'Failed to load deals. Please try again.';
-            startButton.disabled = false;
-        }
-    };
+        });
 
-    // Clean up on page unload
-    window.addEventListener('beforeunload', async () => {
-        stopScanning();
-        if (worker) {
-            await worker.terminate();
-        }
-    });
+        // Add shimmer effect to button
+        startButton.className = 'shimmer-button';
+        startButton.innerHTML = `<span>${startButton.textContent}</span>`;
+    }
 
-    // Clean up any existing styles first
-    startButton.removeAttribute('style');
-    startButton.className = 'shimmer-button';
-
-    // Add the animation keyframes and button styles
+    // Add the shimmer button styles
     const shimmerStyles = document.createElement('style');
     shimmerStyles.textContent = `
         .shimmer-button {
@@ -692,16 +682,6 @@ async function initializeApp() {
     `;
     document.head.appendChild(shimmerStyles);
 
-    // Wrap button text in span
-    const buttonText = startButton.textContent;
-    startButton.innerHTML = `<span>${buttonText}</span>`;
-
-    // Remove any existing shimmer effects
-    const existingShimmer = startButton.querySelector('.shimmer-effect');
-    if (existingShimmer) {
-        existingShimmer.remove();
-    }
-
     // Add delete function for serial numbers
     window.deleteSerialNumber = function(index) {
         scannedNumbers.splice(index, 1);
@@ -714,4 +694,7 @@ async function initializeApp() {
             showResultsView();
         }
     };
-} 
+}
+
+// Export any necessary functions that deal-scanner.js might need
+export { initializeApp }; 
